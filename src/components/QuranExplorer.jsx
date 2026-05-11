@@ -18,7 +18,37 @@ export default function QuranExplorer() {
   const searchRef = useRef(null);
   const audioRef = useRef(null);
 
-  // Load Surahs
+  // =========================
+  // STOP CURRENT AUDIO
+  // =========================
+  const stopCurrentAudio = () => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+
+      audioRef.current.onplaying = null;
+      audioRef.current.onpause = null;
+      audioRef.current.onended = null;
+      audioRef.current.onerror = null;
+
+      audioRef.current.src = '';
+      audioRef.current.load();
+
+      audioRef.current = null;
+    }
+
+    if (window.currentQuranAudio) {
+      window.currentQuranAudio.pause();
+      window.currentQuranAudio.src = '';
+      window.currentQuranAudio = null;
+    }
+
+    setAudioPlaying(false);
+    setAudioLoading(false);
+  };
+
+  // =========================
+  // LOAD SURAHS
+  // =========================
   useEffect(() => {
     fetch('https://api.alquran.cloud/v1/surah')
       .then(r => r.json())
@@ -26,38 +56,28 @@ export default function QuranExplorer() {
       .catch(() => setSurahs([]));
   }, []);
 
-  // Stop audio ONLY when changing Surah
+  // =========================
+  // CLEANUP ON UNMOUNT
+  // =========================
   useEffect(() => {
     return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
-    };
-  }, [selected]);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
+      stopCurrentAudio();
     };
   }, []);
 
+  // =========================
+  // PLAY / PAUSE AUDIO
+  // =========================
   async function toggleAudio() {
     if (!selected) return;
 
-    // If audio already exists
+    // Pause / Resume existing audio
     if (audioRef.current) {
       try {
         if (audioPlaying) {
-          // Pause ONLY (do not reset)
           audioRef.current.pause();
           setAudioPlaying(false);
         } else {
-          // Resume from paused position
           await audioRef.current.play();
           setAudioPlaying(true);
         }
@@ -67,6 +87,9 @@ export default function QuranExplorer() {
 
       return;
     }
+
+    // STOP ANY PREVIOUS AUDIO FIRST
+    stopCurrentAudio();
 
     const surahNum = String(selected).padStart(3, '0');
 
@@ -78,12 +101,6 @@ export default function QuranExplorer() {
 
     setAudioLoading(true);
     setAudioError(false);
-
-    // Stop global audio
-    if (window.currentQuranAudio) {
-      window.currentQuranAudio.pause();
-      window.currentQuranAudio.src = '';
-    }
 
     const audio = new Audio();
 
@@ -110,7 +127,7 @@ export default function QuranExplorer() {
     };
 
     audio.onerror = async () => {
-      // Try fallback once
+      // Try fallback only once
       if (audio.src !== fallbackUrl) {
         try {
           audio.src = fallbackUrl;
@@ -145,6 +162,9 @@ export default function QuranExplorer() {
     }
   }
 
+  // =========================
+  // FILTER SURAHS
+  // =========================
   const filtered = surahs.filter(
     s =>
       s.englishName
@@ -162,16 +182,14 @@ export default function QuranExplorer() {
     ? filtered
     : surahs;
 
+  // =========================
+  // LOAD SURAH
+  // =========================
   async function loadSurah(num) {
-    // Stop previous audio when changing surah
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.src = '';
-      audioRef.current = null;
-    }
+    // IMPORTANT:
+    // STOP PREVIOUS AUDIO COMPLETELY
+    stopCurrentAudio();
 
-    setAudioPlaying(false);
-    setAudioLoading(false);
     setAudioError(false);
 
     setSelected(num);
