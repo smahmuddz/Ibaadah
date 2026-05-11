@@ -12,7 +12,7 @@ export default function QuranExplorer() {
 
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
-  const [audioError, setAudioError] = useState(false);
+  const [, setAudioError] = useState(false);
 
   const searchRef = useRef(null);
   const audioRef = useRef(null);
