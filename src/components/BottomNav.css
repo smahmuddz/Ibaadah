@@ -1,0 +1,99 @@
+.bottom-nav {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    height: 64px;
+    background: var(--card);
+    border-top: 1px solid var(--border);
+    z-index: 100;
+    padding: 0 4px;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+.bottom-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  background: transparent;
+  color: var(--muted);
+  border: none;
+  padding: 8px 4px;
+  transition: color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.bottom-tab.active { color: var(--accent); }
+.bottom-tab.active .tab-icon { filter: drop-shadow(0 0 4px rgba(74,207,125,0.5)); }
+
+.tab-icon { font-size: 20px; line-height: 1; }
+.tab-label { font-size: 10px; font-weight: 500; letter-spacing: 0.2px; }
+
+/* More drawer */
+.more-overlay {
+  display: none;
+}
+@media (max-width: 768px) {
+  .more-overlay {
+    display: block;
+    position: fixed; inset: 0;
+    background: var(--overlay);
+    z-index: 98;
+  }
+}
+
+.more-drawer {
+  display: none;
+}
+@media (max-width: 768px) {
+  .more-drawer {
+    display: block;
+    position: fixed;
+    bottom: 64px; left: 0; right: 0;
+    z-index: 99;
+    padding: 0 12px 12px;
+  }
+}
+
+.more-drawer-inner {
+  background: var(--card2);
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  padding: 10px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.more-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: var(--card);
+  border: 1px solid var(--button-border);
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+.more-item.active {
+  color: var(--accent);
+  border-color: var(--green);
+  background: rgba(45,122,79,0.15);
+}
+.theme-toggle-item {
+  background: var(--surface-strong);
+  border-color: var(--button-border);
+}
+.more-icon { font-size: 22px; }
+.more-label { font-weight: 600; }
