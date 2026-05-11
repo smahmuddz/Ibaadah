@@ -6,13 +6,14 @@ export default function QuranExplorer() {
   const [selected, setSelected] = useState('');
   const [verses, setVerses] = useState([]);
   const [loading, setLoading] = useState(false);
+
   const [search, setSearch] = useState('');
   const [searchOpen, setSearchOpen] = useState(true);
   const [listCollapsed, setListCollapsed] = useState(false);
 
   const [audioPlaying, setAudioPlaying] = useState(false);
   const [audioLoading, setAudioLoading] = useState(false);
-  const [, setAudioError] = useState(false);
+  const [audioError, setAudioError] = useState(false);
 
   const searchRef = useRef(null);
   const audioRef = useRef(null);
@@ -25,20 +26,14 @@ export default function QuranExplorer() {
       .catch(() => setSurahs([]));
   }, []);
 
-  // Stop audio when switching surah
+  // Stop audio ONLY when changing Surah
   useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
-      audioRef.current.src = '';
-      audioRef.current.load();
-
-      audioRef.current = null;
-    }
-
-    setAudioPlaying(false);
-    setAudioLoading(false);
-    setAudioError(false);
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.src = '';
+      }
+    };
   }, [selected]);
 
   // Cleanup on unmount
@@ -46,7 +41,7 @@ export default function QuranExplorer() {
     return () => {
       if (audioRef.current) {
         audioRef.current.pause();
-        audioRef.current.currentTime = 0;
+        audioRef.current.src = '';
       }
     };
   }, []);
@@ -54,19 +49,22 @@ export default function QuranExplorer() {
   async function toggleAudio() {
     if (!selected) return;
 
-    // Toggle existing audio
+    // If audio already exists
     if (audioRef.current) {
-      if (audioPlaying) {
-        audioRef.current.pause();
-        setAudioPlaying(false);
-      } else {
-        try {
+      try {
+        if (audioPlaying) {
+          // Pause ONLY (do not reset)
+          audioRef.current.pause();
+          setAudioPlaying(false);
+        } else {
+          // Resume from paused position
           await audioRef.current.play();
           setAudioPlaying(true);
-        } catch (err) {
-          console.error(err);
         }
+      } catch (err) {
+        console.error(err);
       }
+
       return;
     }
 
@@ -81,27 +79,19 @@ export default function QuranExplorer() {
     setAudioLoading(true);
     setAudioError(false);
 
-    // Stop any previous audio globally
+    // Stop global audio
     if (window.currentQuranAudio) {
       window.currentQuranAudio.pause();
-      window.currentQuranAudio.currentTime = 0;
+      window.currentQuranAudio.src = '';
     }
 
     const audio = new Audio();
-    window.currentQuranAudio = audio;
 
     audio.crossOrigin = 'anonymous';
+    audio.preload = 'auto';
 
     audioRef.current = audio;
-
-    const cleanup = () => {
-      setAudioPlaying(false);
-      setAudioLoading(false);
-
-      if (audioRef.current === audio) {
-        audioRef.current = null;
-      }
-    };
+    window.currentQuranAudio = audio;
 
     audio.onplaying = () => {
       setAudioLoading(false);
@@ -112,7 +102,12 @@ export default function QuranExplorer() {
       setAudioPlaying(false);
     };
 
-    audio.onended = cleanup;
+    audio.onended = () => {
+      setAudioPlaying(false);
+      setAudioLoading(false);
+
+      audio.currentTime = 0;
+    };
 
     audio.onerror = async () => {
       // Try fallback once
@@ -120,14 +115,19 @@ export default function QuranExplorer() {
         try {
           audio.src = fallbackUrl;
           audio.load();
+
           await audio.play();
-        } catch {
-          cleanup();
+        } catch (err) {
+          console.error(err);
+
           setAudioError(true);
+          setAudioLoading(false);
+          setAudioPlaying(false);
         }
       } else {
-        cleanup();
         setAudioError(true);
+        setAudioLoading(false);
+        setAudioPlaying(false);
       }
     };
 
@@ -136,26 +136,44 @@ export default function QuranExplorer() {
       audio.load();
 
       await audio.play();
-    } catch {
-      setAudioLoading(false);
+    } catch (err) {
+      console.error(err);
+
       setAudioError(true);
-      cleanup();
+      setAudioLoading(false);
+      setAudioPlaying(false);
     }
   }
 
-  const filtered = surahs.filter(s =>
-    s.englishName.toLowerCase().includes(search.toLowerCase()) ||
-    s.name.includes(search) ||
-    String(s.number).includes(search)
+  const filtered = surahs.filter(
+    s =>
+      s.englishName
+        .toLowerCase()
+        .includes(search.toLowerCase()) ||
+      s.name.includes(search) ||
+      String(s.number).includes(search)
   );
 
   const currentSurah = surahs.find(
     s => s.number === Number(selected)
   );
 
-  const displayList = searchOpen ? filtered : surahs;
+  const displayList = searchOpen
+    ? filtered
+    : surahs;
 
   async function loadSurah(num) {
+    // Stop previous audio when changing surah
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = '';
+      audioRef.current = null;
+    }
+
+    setAudioPlaying(false);
+    setAudioLoading(false);
+    setAudioError(false);
+
     setSelected(num);
     setLoading(true);
 
@@ -165,23 +183,31 @@ export default function QuranExplorer() {
 
     try {
       const [arRes, enRes] = await Promise.all([
-        fetch(`https://api.alquran.cloud/v1/surah/${num}`),
-        fetch(`https://api.alquran.cloud/v1/surah/${num}/en.asad`)
+        fetch(
+          `https://api.alquran.cloud/v1/surah/${num}`
+        ),
+        fetch(
+          `https://api.alquran.cloud/v1/surah/${num}/en.asad`
+        )
       ]);
 
-      const [arData, enData] = await Promise.all([
-        arRes.json(),
-        enRes.json()
-      ]);
+      const [arData, enData] =
+        await Promise.all([
+          arRes.json(),
+          enRes.json()
+        ]);
 
-      const combined = arData.data.ayahs.map((a, i) => ({
-        number: a.numberInSurah,
-        arabic: a.text,
-        english: enData.data.ayahs[i]?.text || ''
-      }));
+      const combined =
+        arData.data.ayahs.map((a, i) => ({
+          number: a.numberInSurah,
+          arabic: a.text,
+          english:
+            enData.data.ayahs[i]?.text || ''
+        }));
 
       setVerses(combined);
-    } catch {
+    } catch (err) {
+      console.error(err);
       setVerses([]);
     }
 
@@ -192,9 +218,10 @@ export default function QuranExplorer() {
     <div className="feature-page quran-layout">
       <div className="page-header">
         <h1>📖 Quran Explorer</h1>
+
         <p>
-          Read every Surah with Arabic text and English
-          translation
+          Read every Surah with Arabic text
+          and English translation
         </p>
       </div>
 
@@ -212,7 +239,9 @@ export default function QuranExplorer() {
                 className="feature-input"
                 placeholder="🔍 Search surahs..."
                 value={search}
-                onChange={e => setSearch(e.target.value)}
+                onChange={e =>
+                  setSearch(e.target.value)
+                }
                 autoFocus
               />
             ) : (
@@ -227,7 +256,8 @@ export default function QuranExplorer() {
                   }, 50);
                 }}
               >
-                🔍 {listCollapsed
+                🔍{' '}
+                {listCollapsed
                   ? 'Search / Browse'
                   : 'Search'}
               </button>
@@ -273,7 +303,9 @@ export default function QuranExplorer() {
                       ? 'active'
                       : ''
                   }`}
-                  onClick={() => loadSurah(s.number)}
+                  onClick={() =>
+                    loadSurah(s.number)
+                  }
                 >
                   <div className="surah-num">
                     {s.number}
@@ -314,12 +346,15 @@ export default function QuranExplorer() {
         <div className="verses-panel">
           {!selected && (
             <div className="empty-state">
-              <div style={{ fontSize: '60px' }}>
+              <div
+                style={{ fontSize: '60px' }}
+              >
                 📖
               </div>
 
               <p>
-                Select a Surah to begin reading
+                Select a Surah to begin
+                reading
               </p>
             </div>
           )}
@@ -341,7 +376,10 @@ export default function QuranExplorer() {
                   </div>
 
                   <div className="surah-title-en">
-                    {currentSurah.englishName} ·{' '}
+                    {
+                      currentSurah.englishName
+                    }{' '}
+                    ·{' '}
                     {
                       currentSurah.englishNameTranslation
                     }
@@ -376,6 +414,17 @@ export default function QuranExplorer() {
                   {audioPlaying && (
                     <div className="audio-reciter">
                       🎙 Mishary Alafasy
+                    </div>
+                  )}
+
+                  {audioError && (
+                    <div
+                      style={{
+                        marginTop: '10px',
+                        color: '#ff6b6b'
+                      }}
+                    >
+                     
                     </div>
                   )}
                 </div>
