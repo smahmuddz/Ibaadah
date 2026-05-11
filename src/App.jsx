@@ -24,7 +24,7 @@ const PAGES = {
 
 export default function App() {
   const [activePage, setActivePage] = useState('chat');
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState('dark');
   const PageComponent = PAGES[activePage];
 
   useEffect(() => {
