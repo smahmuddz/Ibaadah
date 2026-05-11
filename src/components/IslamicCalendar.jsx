@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import './Common.css';
 
 function toDateInputValue(date) {
@@ -34,14 +34,16 @@ export default function IslamicCalendar() {
     useState(true);
 
   // Load today's Hijri date
-  useEffect(() => {
-    convertDate(
-      toDateInputValue(new Date()),
-      true
-    );
+  
+ useEffect(() => {
+  convertDate(
+    toDateInputValue(new Date()),
+    true
+  );
 
-    fetchUpcomingIslamicDates();
-  }, []);
+  fetchUpcomingIslamicDates();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+}, []);
 
   async function convertDate(
     dateStr,
